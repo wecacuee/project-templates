@@ -1,8 +1,6 @@
 #!/bin/bash
-PROJTYPE=$1
+PROJDIR=$1
 TARGETDIR=$2
-SRCDIR=$(dirname ${BASH_SOURCE})
-PROJDIR=$SRCDIR/project-$PROJTYPE
 FILE=$PROJDIR/Dockerfile
 TFILE=$TARGETDIR/Dockerfile
 
@@ -30,3 +28,8 @@ sedmultline () {
 sedpartial () { sedmultline "%%%.*%%%" $TFILE "$1"; }
 
 doperline $FILE sedpartial
+
+for f in $PROJDIR/*.em; do
+    fname=$(basename $f)
+    rm $TARGETDIR/$fname
+done

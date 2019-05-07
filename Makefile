@@ -6,5 +6,6 @@ install: $(PREFIX)/create-project.sh
 $(PREFIX)/create-project.sh:
 	mkdir -p $(STOWPREFIX)/bin
 	install *.sh $(STOWPREFIX)/bin
-	install -d *.d $(STOWPREFIX)/share
+	mkdir -p $(STOWPREFIX)/share
+	cp -vr *.d $(STOWPREFIX)/share
 	cd $(dir $(STOWPREFIX)) && stow $(PN)
