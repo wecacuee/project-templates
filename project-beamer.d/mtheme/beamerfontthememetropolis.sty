@@ -1,0 +1,46 @@
+% Beamer mtheme
+%
+% Copyright 2014 Matthias Vogelgesang
+% Licensed under CC-BY-SA 4.0 International.
+%
+% The initial template comes from the HSRM beamer theme by Benjamin Weiss, which
+% you can find at https://github.com/hsrmbeamertheme/hsrmbeamertheme.
+%
+
+\ProvidesPackage{beamerfontthememetropolis}
+
+\RequirePackage[no-math]{fontspec}
+
+
+\defaultfontfeatures{Mapping=tex-text}
+
+\setsansfont[Path = fonts/FiraSans/, BoldFont={FiraSans-Regular.ttf}]{FiraSans-Light.ttf}
+\setmonofont[Path = fonts/FiraSans/]{FiraMono-Regular.ttf}
+\newfontfamily\ExtraLight[Path = fonts/FiraSans/]{FiraSans-ExtraLight.ttf}
+\newfontfamily\Light[Path = fonts/FiraSans/]{FiraSans-Light.ttf}
+\newfontfamily\Book[Path = fonts/FiraSans/]{FiraSans-Regular.ttf}
+\newfontfamily\Medium[Path = fonts/FiraSans/]{FiraSans-Medium.ttf}
+
+\AtBeginEnvironment{tabular}{\setsansfont[Path = fonts/FiraSans/, BoldFont={FiraSans-Regular.ttf}, Numbers={Monospaced}]{FiraSans-Light.ttf}}
+
+\setbeamerfont{title}{family=\Book, size=\Large}
+\setbeamerfont{author}{family=\ExtraLight, size=\small}
+\setbeamerfont{date}{family=\ExtraLight, size=\small}
+
+\setbeamerfont{section title}{family=\Book, size=\Large}
+
+\setbeamerfont{block title}{family=\Book, size=\normalsize}
+\setbeamerfont{block title alerted}{family=\Book,size=\normalsize}
+
+\setbeamerfont{subtitle}{family=\Light, size=\fontsize{12}{14}}
+\setbeamerfont{frametitle}{family=\Book, series=\scshape, size=\large}
+
+\setbeamerfont{caption}{size=\small}
+\setbeamerfont{caption name}{family=\Book}
+
+\setbeamerfont{description item}{family=\Book}
+
+\setbeamerfont{page number in head/foot}{size=\scriptsize}
+
+
+\linespread{1.15}

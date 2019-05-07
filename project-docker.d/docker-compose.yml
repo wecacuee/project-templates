@@ -1,0 +1,26 @@
+version: '2.3'
+services:
+  terminal:
+    image: dhiman/base:18.04
+    runtime: nvidia
+    privileged: true
+    network_mode: bridge
+    build:
+      context: .
+      args:
+        USER: "${USER}"
+        HOME: "${HOME}"
+        PWD: "${PWD}"
+        UID: "${UID}"
+    volumes:
+      - ${HOME}:${HOME}
+      - /etc/localtime:/etc/localtime:ro
+      - /tmp/.docker.xauth:/tmp/.docker.xauth
+      - /tmp/.X11-unix:/tmp/.X11-unix 
+    environment:
+      QT_X11_NO_MITSHM: 1
+      XAUTHORITY: /tmp/.docker.xauth
+      DISPLAY: "${DISPLAY}"
+      TERM: "${TERM}"
+    stdin_open: true
+    tty: true

@@ -1,0 +1,1915 @@
+<!doctype html>
+<!--
+  -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>Towards better navigation</title>
+		<meta name="author" content="Vikas Dhiman">
+
+		<link rel="stylesheet" href="reveal.js/css/reveal.css">
+		<link rel="stylesheet" href="./reveal.js/css/theme/white.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="reveal.js/lib/css/zenburn.css">
+		<link rel="stylesheet" href="index.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'reveal.js/css/print/pdf.css' : 'reveal.js/css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+        <script>
+         function show_on_svgload(svgid, eleid) {
+             var elementids = Array.from(arguments).slice(1);
+             window.addEventListener("load", function () {
+                 Index.forSVGElementById(
+                     svgid,
+                     elementids,
+                     function (ele) { ele.style["display"] = "inherit" });
+             });
+         };
+         function hide_on_svgload(svgid, eleid) {
+             var elementids = Array.from(arguments).slice(1);
+             window.addEventListener("load", function () {
+                 Index.forSVGElementById(
+                     svgid,
+                     elementids,
+                     function (ele) { ele.style["display"] = "none" });
+             });
+         };
+        </script>
+        <script>
+         document.presentationtitle = "Towards Better Navigation";
+         document.presentationauthor = "Vikas Dhiman";
+        </script>
+        <style >
+         .obs-map-plan {
+             height:500px;
+         }
+         .mapping-and-localization {
+             position:absolute;top:38%;left:15%;font-size:24pt;text-align:right;color:red;
+             transform: rotate(-38deg);
+             background-color: var(--main-bg-color);
+         }
+         .deep-reinforcement-learning {
+             position:absolute;top:83%;left:30%;
+             font-size:24pt;text-align:right;color:red
+         }
+        </style>
+	</head>
+	<body>
+  <div style="display:none" >
+  \(
+% Vector
+\newcommand{\vect}[1]{\mathbf{#1}}
+\newcommand{\hvect}[1]{\bar{\vect{#1}}}
+% unit vector
+\newcommand{\uvect}[1]{\hat{\vect{#1}}}
+% Field
+\newcommand{\field}[1]{\mathbb{#1}}
+% Trace
+\def\act{a}
+\def\actt{\act_t}
+\newcommand\acttT{\vect{\act}_{t:\epiT}}
+\newcommand{\epiT}{T}
+\newcommand{\spawnP}{P_{\text{spawn}}}
+% Map
+\def\mapsym{x}
+\def\map{\vect{\mapsym}}
+\newcommand{\est}[1]{\hat{#1}}
+\newcommand{\mapest}{\est{\vect{x}}}
+% Measurement or observation
+\newcommand{\meas}{z}
+\newcommand{\measurements}{\vect{\meas}_{1:t}}
+\newcommand{\meast}[1][t]{\meas_{#1}}
+% Pose
+\newcommand{\pose}{g}
+\newcommand{\poset}[1][t]{\pose_{#1}}
+\newcommand{\posetn}{\pose_{t+1}}
+\newcommand{\posetp}{\pose_{t-1}}
+\newcommand{\poses}{\vect{\pose}_{1:t}}
+\newcommand{\posest}{\est{\pose}}
+\newcommand{\posestt}{\est{\pose}_t}
+% Pose goal 
+\newcommand{\posegoal}{d}
+
+\newcommand{\unaryminus}{\scalebox{0.5}[0.5]{\( - \)}}
+\newcommand{\prevtime}{1:t\unaryminus1}
+\newcommand{\pastposes}{\vect{\pose}_{\prevtime}}
+\newcommand{\pastmeas}{\vect{\meas}_{\prevtime}}
+\newcommand{\pastobs}{\pastmeas, \pastposes}
+
+\newcommand{\mutlocest}{f_{\text{mutloc}}}
+\newcommand{\epiT}{T}
+\newcommand{\spawnP}{P_{\text{spawn}}}
+
+\newcommand{\param}{\theta}
+\newcommand{\policy}{\chi}
+
+% CVPR16
+%\DeclareMathSymbol{\Tangent}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\sech}{sech}
+\DeclareMathOperator{\poly}{poly}
+%\DeclareMathOperator*{\argmin}{\arg\min}
+
+\newcommand{\ptD}{\posDp} % FIXME: conflicts with \map, this should be \posDp
+\newcommand{\Obj}{C} % In mutloc C_p and C_q used for robots
+\newcommand{\ObjMu}{\vect{m}} % FIXME: in mutloc used as 3D pos of markers in frame 1, this should \pose
+\newcommand{\ObjR}{\bm{\omega}}
+\newcommand{\ObjSigma}{\bm{\Sigma}}
+\newcommand{\Logst}{\mathcal{L}}
+\newcommand{\OccF}{f_{\text{occ}}}
+\newcommand{\gOccF}{\nabla \OccF}
+\newcommand{\gOccFi}{\nabla \OccF^i}
+\newcommand{\impt}{\imgp{\ptD}}
+% Mahalonobis distance between to points
+\newcommand{\mahaF}{\zeta} % FIXME: use some greek letter
+\newcommand{\LogstIm}{\Logst_u}
+\newcommand{\tImMu}{\bm{\mu}}
+\newcommand{\tImS}{\bm{\Gamma}}
+\newcommand{\LogstD}{\Logst_{\dist}}
+\newcommand{\tDMu}{\nu}
+\newcommand{\meandepth}[1]{\tDMu_{#1}}
+
+\newcommand{\BB}{\mathbf{B}}
+\newcommand{\imBB}{\imgp{\BB}}
+\newcommand{\camO}{\mathbf{p}^c}
+\newcommand{\camR}{\bm{\omega}^c}
+
+\newcommand{\bepsilon}{\bm{\epsilon}}
+
+% 3D pose of the cars and ego motion
+\newcommand{\pos}[2]{\ObjMu^{#1}({#2})}
+\newcommand{\ori}[2]{\ObjR^{#1}(#2)}
+\newcommand{\state}[2]{\mathbf{s}^{#1}(#2)}
+
+% ego pose
+\newcommand{\egop}[1][t]{\pos{c}{#1}}
+\newcommand{\egoo}[1][t]{\ori{c}{#1}}
+\newcommand{\egos}[1][t]{\state{c}{#1}}
+
+% relative pose between camera and car $i$
+\newcommand{\posealt}{\pose} % FIXME: Consider unifying with \pose
+\newcommand{\relp}[2]{\posealt^{#1}(#2)}
+\newcommand{\relpz}[2]{\posealt_z^{#1}(#2)}
+
+% 3D tracks on car $i$ in its own coordinate frame
+\newcommand{\tracklets}{\mathbf{X}^{i}_o}
+\newcommand{\tracklet}[1]{\ptD^{i}_{#1}}
+% track projections on camera
+\newcommand{\trackpit}[2]{\impt_{#1}(#2)}
+\newcommand{\trackp}[1]{\impt_j(#1)}
+\newcommand{\trackpj}[1]{\impt_j(#1)}
+% Unclassified track point projected on camera
+\newcommand{\ucTrackp}{\impt(t)}
+
+
+% dimensions of car $i$
+\newcommand{\dimsn}[1]{\BB^{#1}}
+\newcommand{\expDimsn}{\hat{\BB}}
+
+% projection function
+\newcommand{\projectionOf}[1]{\proj_{\relp{i}{t}}\left(#1\right)}
+\newcommand{\projectionOft}[1]{\proj_{\relp{i}{t+1}}\left(#1\right)}
+\newcommand{\centerProj}{\bar{\proj}_{\relp{i}{t}}(\dimsn{i})}
+\newcommand{\cornerProj}[1]{\proj^{#1}_{\relp{i}{t}}(\dimsn{i})}
+\newcommand{\triangleProj}[1]{\triangle^{#1}_{\relp{i}{t}}(\dimsn{i})}
+
+% bounding box corners on image
+\newcommand{\bbt}[2]{\imBB^{#1}({#2})}
+\newcommand{\bb}[1]{\imBB^{#1}(t)}
+
+\newcommand{\bbMu}{\bm{\mu}} % FIXME: conflicts with logistic mean of trans prob
+\newcommand{\bbS}{\bm{\Lambda}}
+
+
+\newcommand{\Energy}[1]{\mathcal{E}^{it}_{\text{#1}}}
+\newcommand{\pEnergy}[1]{\mathcal{E}^{ijt}_{\text{#1}}}
+% Weighted energy
+\newcommand{\WEnergy}[1]{\lambda_{\text{#1}}\Energy{#1}}
+\newcommand{\WpEnergy}[1]{\lambda_{\text{#1}}\pEnergy{#1}}
+\newcommand{\EnergyCol}{\mathcal{E}^{ijt}_{\text{col}}}
+\newcommand{\WEnergyCol}{\lambda_{\text{col}}\EnergyCol}
+
+\newcommand{\EnergyBBoxNoOcc}{\Energy{detectNoOcc}}
+\newcommand{\EnergyBBox}{\Energy{detect}}
+\newcommand{\EnergyTrack}{ \pEnergy{track}}
+\newcommand{\EnergyTrackNoOcc}{\pEnergy{trackNoOcc}}
+\newcommand{\EnergyLane}{\Energy{lane}}
+\newcommand{\EnergySize}{\Energy{size}}
+\newcommand{\EnergyDyn}{\Energy{dyn}}
+\newcommand{\EnergyDynHol}{\Energy{dyn-hol}}
+\newcommand{\EnergyDynOri}{\Energy{dyn-ori}}
+\newcommand{\EnergyDynVel}{\Energy{dyn-vel}}
+
+\newcommand{\occFreeProj}[1]{\Pi_{\relp{i}{t}}(#1)}
+\newcommand{\minx}{x_{\text{min}}}
+\newcommand{\miny}{y_{\text{min}}}
+\newcommand{\maxx}{x_{\text{max}}}
+\newcommand{\maxy}{y_{\text{max}}}
+\newcommand{\frontface}{F^i_\text{FF}(t)}
+
+\newcommand{\occ}[1]{o({#1})}
+\newcommand{\face}{F^i_k(t)}
+
+\newcommand{\invProjectionOf}[1]{\pi^{-1}_{\relp{i}{t}}\left(#1\right)}
+\newcommand{\invProjectionOftm}[1]{\pi^{-1}_{\relp{i}{t-1}}\left(#1\right)}
+\newcommand{\occf}{\OccF^i(\ptD_j)}
+\newcommand{\occftot}{\OccF(\ptD_j)}
+\newcommand{\occft}[1]{\OccF(#1)}
+
+\newcommand{\ray}{\uvect{\ptD}_j}
+\newcommand{\occfray}{f_{occ}(\lambda\ray)}
+\newcommand{\lambdadist}{f_{\lambda}(\trackpj{t-1}, \lambda)}
+
+\newcommand{\occfxi}{L(\mathbf{x}; \pos{i}{t-1}, \Sigma_i)}
+\newcommand{\occfi}{L(\lambda \ray; \pos{i}{t-1}, \Sigma_i)}
+
+\newcommand{\PreflR}{P^{ij}_{\text{reflection}}}
+\newcommand{\Pobs}{P^{ij}_{\text{observation}}}
+\newcommand{\PtransR}{P^{j}_{\text{transmission}}}
+\newcommand{\PassocR}{P^{ij}_{\text{assoc}}}
+\newcommand{\assoc}{a^{ij}}
+\newcommand{\assocP}{\assoc(\lambda)}
+\newcommand{\assocPk}{\assoc(\lambda_k)}
+\newcommand{\Ereproj}{E^{ij}_{\text{reproj}}}
+\newcommand{\Ptransarg}[1]{\PtransR(#1)}
+\newcommand{\Ptrans}{\Ptransarg{\lambda}}
+\newcommand{\Ptransmud}{\Ptransarg{\mu^{i}_d}}
+\newcommand{\Prefl}{\PreflR(\lambda)}
+\newcommand{\Zrefl}{Z_{\text{refl}}}
+\newcommand{\dishort}{d_i(\mathbf{x})}
+
+\newcommand{\Lu}{\LogstIm(\impt, \tImMu^i,\tImS^i)}
+\newcommand{\Llambda}{\LogstD(\impt, \dist; \tDMu^i)}
+
+\newcommand{\Gauss}{\mathcal{N}}
+\newcommand{\PropDist}{\mathcal{W}_j}
+
+\newcommand{\muijl}{\mu^{ij}_{\dist}}
+\newcommand{\sigmaijl}{\sigma^{ij}_{\dist}}
+
+\newcommand{\Sigmait}{\bSigma^{i^{-1}}_o}
+
+\newcommand{\muit}{\bmu^{i}_o}
+\newcommand{\Sigmaic}{\bSigma'^{i^{-1}}_c}
+
+\newcommand{\muic}{{\bmu^{i}_c}}
+\newcommand{\Sigmaicf}{\bSigma^{i^{-1}}_c}
+\newcommand{\Sigmaicfinv}{\Sigma^{i}_c}
+
+\newcommand{\muiu}{\mu^{i}_t}
+\newcommand{\Sigmaiu}{\Sigma^{i^{-1}}_u}
+
+\newcommand{\uv}[1]{\hat{\mathbf{#1}}}
+\newcommand{\Trr}[3]{{}^{#1}{#2}_{#3}}
+\newcommand{\xymin}[1]{#1_{\text{min}}}
+\newcommand{\xymax}[1]{#1_{\text{max}}}
+
+\newcommand{\xt}{\mathbf{x}_t}
+\newcommand{\xc}{\mathbf{x}_c}
+
+\newcommand{\Rctot}{\bR}
+\newcommand{\tctot}{\bt}
+
+\newcommand{\tcmut}{\bt'}
+
+
+\newcommand{\Beizer}{B\'eizer }
+
+\newcommand{\LaneUncertainty}[1]{\Sigma_{L_m}(#1)}
+\newcommand{\projOnLane}[1]{\pi_{L_m(k)}(#1)}
+
+\newlength{\eqs}
+\setlength{\eqs}{-0.04in}
+
+\setitemize[0]{leftmargin=15pt}
+
+\newenvironment{tight_itemize}{
+\begin{itemize}[leftmargin=10pt]
+  \setlength{\topsep}{0pt}
+  \setlength{\itemsep}{0pt}
+  \setlength{\parskip}{0pt}
+  \setlength{\parsep}{0pt}
+}{\end{itemize}}
+
+
+
+% DRL
+\def\state{s}
+\newcommand{\statet}[1][t]{\state_{#1}}
+\def\statetp{\state_{t-1}}
+\def\statehist{\state_{1:t-1}}
+\def\statetn{\state_{t+1}}
+\def\obs{\meas}
+\def\obst{\obs_t}
+\def\act{a}
+\newcommand{\actt}[1][t]{\act_{#1}}
+\def\acttp{\act_{t-1}}
+\def\acttn{\act_{t+1}}
+\def\Obs{\mathcal{O}}
+\def\ObsEnc{E_o}
+\def\ObsProb{P_o}
+\def\ObsFunc{C}
+\def\ObsFuncFull{\ObsFunc(\statet, \actt) \rightarrow \obst}
+\def\ObsFuncInv{\ObsFunc^{-1}}
+\def\ObsFuncInvFull{\ObsFuncInv(\obst, \statetp, \actt) \rightarrow \statet}
+\def\State{\mathcal{S}}
+\def\Action{\mathcal{A}}
+\def\TransP{P_{T}}
+\def\Trans{T}
+\def\TransFull{\Trans(\statet, \actt) \rightarrow \statetn}
+\def\TransObs{T_c}
+\def\Rew{R}
+\def\rew{r}
+\def\rewards{\vect{r}_{1:t}}
+\def\rewt{\rew_t}
+\def\rewtp{\rew_{t-1}}
+\def\rewtn{\rew_{t+1}}
+\def\RewFull{\Rew(\statet, \actt) \rightarrow \rewtn}
+\def\TransObsFull{\TransObs(\statet, \obst, \actt, \rewt; \theta_T) \rightarrow \statetn}
+\def\Value{V}
+\def\pit{\pi_t}
+\def\piDef{\pi(\acttn|\statet, \obst, \actt, \rewt; \theta_\pi) \rightarrow \pit(\acttn ; \theta_\pi)}
+\def\Valuet{\Value_t}
+\def\ValueDef{\Value(\statet, \obst, \actt, \rewt; \theta_\Value) \rightarrow \Valuet(\theta_\Value)}
+\def\R{\mathbb{R}}
+\def\E{\mathbb{E}}
+
+
+\newcommand{\LatencyOneGtOne}{Latency $1:>1$}
+\newcommand{\NavAiiiCDiDiiL}{NavA3C+D\textsubscript{1}D\textsubscript{2}L}
+
+\newcounter{Benchmark}
+\newcounter{BenchmarkB}[Benchmark]
+\newcommand{\ditem}[1]{\refstepcounter{Benchmark}\item[\arabic{Benchmark}. {#1}]}
+\newcommand{\dditem}[1]{\refstepcounter{BenchmarkB}\item[\arabic{Benchmark}.\alph{BenchmarkB}. {#1}]}
+\newcommand{\DistanceInefficiency}{Distance-inefficiency}
+
+% Observation probability
+% forward sensor model
+
+% Differentiable Floyd Warshall algorithm
+\newcommand{\graph}{G}
+\newcommand{\vtces}{V}
+\newcommand{\edges}{E}
+%\newcommand{\policy}{\Pi}
+\newcommand{\wts}{W}
+\newcommand{\distM}{D}
+\newcommand{\nil}{\emptyset}
+
+\newcommand{\qValue}{Q}
+\newcommand{\Q}{\qValue}
+\newcommand{\goal}{g}
+\newcommand{\Goal}{\mathcal{G}}
+\newcommand{\discount}{\gamma}
+\newcommand{\fwcost}{Q}
+\newcommand{\fw}{\fwcost}
+\newcommand{\fwargs}[5]{\fw_{#4}^{#5}\left({#1}, {#2}, {#3}\right)}
+\newcommand{\minedgecost}{\fwcost_0}
+\newcommand{\Rgoal}{R_{\text{goal}}}
+
+\newcommand{\Loo}{Latency-1:\textgreater1}
+
+\newcommand{\Loss}{\mathcal{L}}
+\newcommand{\LossText}[1]{\Loss_{\text{#1}}}
+\newcommand{\LossDDPG}{\LossText{ddpg}}
+\newcommand{\LossStep}{\LossText{step}}
+\newcommand{\LossLo}{\LossText{lo}}
+\newcommand{\LossUp}{\LossText{up}}
+\newcommand{\LossTrieq}{\LossText{trieq}}
+
+\newcommand{\tgt}{\text{tgt}}
+\newcommand{\Qstar}{\Q_{*}}
+\newcommand{\Qtgt}{\Q_{\text{tgt}}}
+\newcommand{\ytgt}{y_t}
+
+\newcommand{\bpmsg}[4]{\mu^{#4}_{#1\rightarrow#2}(#3)}
+\newcommand{\msg}[3]{\mu_{#1#2}(#3)}
+\newcommand{\discount}{\gamma}
+\newcommand{\problemobjective}{\begin{align}
+\vect{\act}_{1:\epiT} &= \arg \max_{\vect{\act}_{1:\epiT}} \E \left[\left.
+\discount^{k}\mathbb{1}_{\|\posegoal - \pose_k\|_2 \le \epsilon}
+\right|
+\vect{\meas}_{1:\epiT} \right]
+\end{align}}
+    \)
+  </div>
+        <div class="reveal">
+			<div class="slides" >
+<!-- Start of slides -->
+
+<section id="title-slide" class="center">
+  <div style="width:50%;margin:auto">
+    <h2 class="presentationtitle" ></h2>
+    <h4 >Optimizing mapping, localization and planning algorithms</h4>
+  </div>
+  <h3 class="presentationauthor" ></h3>
+  <p style="width:70%">
+    Committee members:
+  <ul><li>
+    Prof Jason Corso, Chair
+  </li><li>
+    Prof Satinder S Baveja
+  </li><li>
+    Prof Matthew Johnson-Roberson,
+  </li><li>
+    Prof Jeffrey M Siskind, Purdue University
+  </li></ul>
+  </p>
+</section>
+
+<style>
+.reveal ul.simple {
+margin: 3em;
+padding: 2em;
+}
+</style>
+
+<section id="talk-outline" >
+    <h2>Outline</h2>
+    <div style="position:relative;margin:auto;display:inline-block;left:2%">
+        <div class="" >
+            <object type="image/svg+xml"
+                    id="talk-outline-obs-map-plan"
+                    class="obs-map-plan"
+                    data="./media/obs-map-plan-layered.svg"
+                    onload="show_on_svgload('talk-outline-obs-map-plan', 'slide-nav')"
+            >
+            </object>
+        </div>
+        <div id="talk-outline-obs-map-plan-dummies"
+             class="dummy-to-svg-map"
+             mapped-svg="talk-outline-obs-map-plan"
+        >
+          <span id="talk-outline-map" class="fragment"
+                svg-ele-in-ids="slide-map"
+                svg-ele-out-ids="slide-nav"
+          ></span>
+          <span id="talk-outline-localization"
+                svg-ele-in-ids="slide-loc"
+                svg-ele-out-ids="slide-map"
+                class="fragment"></span>
+          <span id="talk-outline-rl-arrow"
+                svg-ele-in-ids="slide-plan"
+                svg-ele-out-ids="slide-loc"
+                class="fragment"></span>
+        </div>
+    </div>
+    <div id="talk-outline-more-dummies"
+         class="dummy-to-svg-map"
+         mapped-svg="talk-outline-obs-map-plan"
+         style="display:flex; justify-content: space-between; width:90%;margin:auto">
+      <span id="talk-outline-mapping"
+            svg-ele-in-ids="slide-map-red"
+            svg-ele-out-ids="slide-plan"
+            class="fragment"> Mapping </span>
+      <span id="talk-outline-mutual-loc"
+            svg-ele-in-ids="slide-loc-red"
+            svg-ele-out-ids="slide-map-red"
+            class="fragment">  Localization </span>
+      <span id="talk-outline-end-to-end"
+            svg-ele-in-ids="slide-end-to-end-rl"
+            svg-ele-out-ids="slide-loc-red"
+            class="fragment">  End-to-End RL</span>
+      <span id="talk-outline-gcrl"
+            svg-ele-in-ids="slide-goal-rl"
+            svg-ele-out-ids="slide-end-to-end-rl"
+            class="fragment"> Goal conditioned RL</span>
+    </div>
+</section>
+
+<section id="highlight-mapping" data-state="highlight-mapping">
+    <h2>Mapping</h2>
+    <div style="position:relative;margin:auto;display:inline-block;left:2%">
+        <div class="" >
+            <object type="image/svg+xml"
+                    id="highlight-mapping-obs-map-plan"
+                    class="obs-map-plan fragment nofade"
+                    onload='show_on_svgload("highlight-mapping-obs-map-plan", "slide-map-highlight")'
+                    data="./media/obs-map-plan-layered.svg" >
+            </object>
+        </div>
+    </div>
+    <div style="display:flex; justify-content: space-between; width:90%;margin:auto">
+      <span id="talk-outline-mapping" > Mapping </span>
+      <span id="talk-outline-mutual-loc" style="opacity:0">  Localization </span>
+      <span id="talk-outline-end-to-end" style="opacity:0">  End-to-End RL</span>
+      <span id="talk-outline-gcrl" style="opacity:0"> Goal conditioned RL</span>
+    </div>
+</section>
+
+<section id="occgrid-title">
+  <h2>Occupancy grid mapping using Factor graphs</h2>
+  <img style="width:40%;vertical-align:middle"
+       src="media/occgrid/factorgraph3.svg"/>
+  <img style="width:40%;vertical-align:middle"
+       src="media/occgrid/occgrid-mapping-qual.png"/>
+</section>
+
+
+<section id="occgrid-forward-vs-inverse">
+  <div style="width:50%;float:left">
+    <h2>Inverse sensor models </h2>
+    <div style="text-align:left; margin: auto; width:60%; ">
+      <ul><li class="fragment">
+          <!--
+              Cell independence assumption
+              \[
+              \begin{align}
+              p(\map|\measurements, \poses) &= \prod_{1 \le i \le N} p(\mapsym_i|\measurements, \poses)
+              \end{align}
+              \]
+              </li><li class="fragment"> Temporal markovianity
+          \[
+          p(\mapsym_i|\measurements, \poses) 
+          = \prod_{1\le f \le t} \frac{p(\mapsym_i|\meas_f, \pose_f)}{p(\mapsym_i)}
+          \]
+        </li><li class="fragment"> 
+          -->
+          \(
+          p(\mapsym_i|\meas_f, \pose_f)
+          \) is the inverse sensor model
+      </li></ul>
+      <br/>
+      <br/>
+      <h4 class="fragment">
+        Drawbacks
+      </h4>
+      <ul><li class="fragment">
+          Cell Independence assumption is too crude
+        </li><li class="fragment">
+          Inverse sensor models is often inaccurate
+      </li></ul>
+    </div>
+  </div>
+  <div class="fragment" style="width:50%;float:right">
+    <h2>Forward sensor models </h2>
+    <div style="text-align:left; margin: auto; width:60%; ">
+      <ul><li >
+          <!--
+              From temporal markov assumption
+              \[
+              \begin{align}
+              p(\map | \measurements, \poses) &= p(\map)\prod_{1 \le f \le t}
+              p(\meas_f|\map, \pose_f) \frac{p(\pose_f|\map)}{p(\meas_f, \pose_f)}
+              \label{eq:recursivesol}
+              \end{align}
+              \]
+              </li><li class="fragment">
+          Assuming uniform pose probability given map
+          \[
+          \begin{align}
+          p(\map | \measurements, \poses) &= p(\map)\prod_{1 \le f \le t}
+          \frac{p(\meas_f|\map, \pose_f) }{ p(\meas_f, \pose_f) }
+          \label{eq:recursivesoltwo}
+          \end{align}
+          \]
+        </li><li class="fragment">
+          -->
+          \( p(\meas_f | \map, \pose_f) \) is the forward sensor model
+      </li></ul>
+      <p></p>
+      <h4 class="fragment"> Advantages </h4>
+      <ul><li class="fragment">
+          No independent cell assumption.
+        </li><li class="fragment">
+          Forward sensor models are straightforward to compute
+      </li></ul>
+    </div>
+  </div>
+</section>
+
+<section id="occgrid-fg">
+  <h2>Occupancy grid to factor graph</h2>
+  <object data="./media/occgrid/factorgraph3.svg" 
+          type="image/svg+xml"
+          style="width: 40%;margin: 0 0 0 0; background-color: white" >
+  </object>
+  <div style="">
+      <ul><li> \(V\) = Map cells are variable nodes
+      </li><li> \(F\) = Laser measurements are factor nodes
+      </li><li> \( E = \{(i, f) : i \in V, f \in F, \text{laser $f$ passes through cell $i$}\}\)
+      </li><li> Factor graph \(G = (V, F, E) \)
+      </li><li> Represents probability factorization \( P(X_V) = \prod_{f \in F}\Psi(X_{\text{Nbrs}(f)}) \)
+      </li></ul>
+  </div>
+</section>
+
+<section id="occgrid-methods">
+  <h2>Modern inference methods</h2>
+  <div style=""><ul><li>
+  Metropolis Hastings for mapping (Merali2013icra)
+      </li><li>
+        Belief propagation
+        \[
+        \begin{align}
+        \bpmsg{f}{i}{l_i}{r+1} &= \sum_{\map_f \in \Omega_f: x_i = l_i}P_f(\map_f)\prod_{j \in n(f) \setminus i}\bpmsg{j}{f}{x_j}{r}
+        \label{eq:factor2node}
+        \\
+        \bpmsg{i}{f}{l_i}{r+1} &= \prod_{h \in n(i) \setminus f}\bpmsg{h}{i}{l_i}{r}
+        \label{eq:node2factor}
+        \end{align}
+        \]
+      </li><li>
+        Dual decomposition
+        \[\begin{align}
+        \map^f &\leftarrow \arg \min\limits_{\map^f} \left( \theta_f(\map^f) + \sum\limits_{i \in n(f)}\msg{i}{f}{x^f_i} \right)
+        \\
+        \msg{i}{f}{x^f_i} &\leftarrow \msg{i}{f}{x^f_i} + \frac{\alpha}{r}
+        & \text{for disagreening nodes \(i\)}
+        \end{align}\]
+  </li></li></div>
+</section>
+
+<section id="occgrid-qual-res">
+  <h2>Occupancy grid mapping using Factor graphs</h2>
+  <p>
+    <object style="display:block;margin:auto;width:90%"
+            type="image/svg+xml"
+            data="media/occgrid/occgrid-mapping-qual-labeled.svg"></object>
+  </p>
+  <footnote >
+    V. Dhiman and A. Kundu and F. Dellaert and J. J. Corso. "Modern MAP inference methods for accurate and faster occupancy grid mapping on higher order factor graphs". ICRA 2014
+  </footnote>
+  <footnote >
+    V. Dhiman and A. Kundu and F. Dellaert and J. J. Corso. "Modern MAP inference methods for accurate and faster occupancy grid mapping on higher order factor graphs". ICRA 2014
+  </footnote>
+</section>
+
+<section id="occgrid-quant-res">
+  <h2>Results</h2>
+  <object data="media/occgrid/cave_player/plot-time-energy.svg" type="image/svg+xml"
+       style="width: 45%;margin: 0 0 0 0" >
+  </object>
+  <object data="media/occgrid/hospital_section_player/plot-time-energy.svg" type="image/svg+xml"
+       style="width: 45%;margin: 0 0 0 0" >
+  </object>
+  <object data="media/occgrid/hospital_player/plot-time-energy.svg" type="image/svg+xml"
+       style="width: 45%;margin: 0 0 0 0" >
+  </object>
+  <object data="media/occgrid/albertb.sm/plot-time-energy.svg" type="image/svg+xml"
+       style="width: 45%;margin: 0 0 0 0" >
+  </object>
+</section>
+
+<section id="occgrid-conclude" class="center">
+  <h2>Conclusion</h2>
+  <ul><li>
+    First application of modern Factor Graph inference algorithms on occupancy
+    grid mapping.
+  </li><li>
+    For a fast mapping algorithm, use inverse sensor model.
+  </li><li>
+    For improving the accuracy of the map, use forward sensor model.
+  </li></ul>
+
+</section>
+
+<section id="highlight-localization" data-state="highlight-localization">
+  <h2>Mutual localization</h2>
+  <div style="position:relative;margin:auto;display:inline-block;left:2%">
+    <div class="" >
+      <object type="image/svg+xml"
+              id="highlight-localization-obs-map-plan"
+              class="obs-map-plan fragment nofade"
+              onload='show_on_svgload("highlight-localization-obs-map-plan", "slide-loc-highlight")'
+              data="./media/obs-map-plan-layered.svg"
+      >
+      </object>
+    </div>
+  </div>
+  <div style="display:flex; justify-content: space-between; width:90%;margin:auto">
+    <span id="talk-outline-mapping" > Mapping </span>
+    <span id="talk-outline-mutual-loc" >  Localization </span>
+    <span id="talk-outline-end-to-end" style="opacity:0">  End-to-End RL</span>
+    <span id="talk-outline-gcrl" style="opacity:0"> Goal conditioned RL</span>
+  </div>
+</section>
+
+<section id="mutloc-prob-math">
+    <h2>Mutual localization</h2>
+    <video
+        class="slide-play"
+        style="margin:auto" width="976" height="297"  loop>
+        <source src="media/mutloc/mutloc-input-faster.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <div class="fragment" style="position:relative" >
+        <div style="position:absolute; left:0%; top:0%; width:60%; margin-top:-10%;z-index:-1" >
+            <img src="media/mutloc/images/problem.svg" />
+        </div>
+        <div style="position:absolute; left:60%; top:0%; width:40%; margin-top:-5%" >
+            <div style="position:absolute; margin-top:30%" >
+                Find \(R,t\) such that
+                \begin{align}
+                q_i &= Rp_i + t
+                \\
+                \text{where }&\\
+                q_i \in&\, \mathbb{R}^3, 
+                p_i \in \mathbb{R}^3,
+                \\
+                R \in& \text{ SO(3), }
+                t \in \mathbb{R}^3
+                \end{align}
+            </div>
+        </div>
+    </div>
+    <cite data-key="<b>Dh</b>RyCo IROS 2013"></cite>
+</section>
+
+<section id="mutloc-related" >
+    <p><div style="display:table;padding-left:2%">
+    <div style="display:table-row" class="build" >
+        <div class="state6" style="text-align:center;display:table-cell"> Single observation </div>
+        <div class="fragment"
+             data-fragment-index="10"
+             style="text-align:center;display:table-cell"> External landmarks </div>
+        <div class="fragment"
+             data-fragment-index="11"
+             style="text-align:center;display:table-cell"> Egomotion </div>
+    </div>
+    <div style="display:table-row" 
+    >
+        <div class="state6" style="display:table-cell">
+        <img src="media/mutloc/images/robot0.svg" class="column" />
+    </div>
+    <div class="fragment"
+         data-fragment-index="10"
+         style="display:table-cell">
+        <img src="media/mutloc/images/robot-landmark0.svg" class="column" />
+    </div>
+    <div class="fragment"
+         data-fragment-index="11"
+         style="display:table-cell">
+        <img src="media/mutloc/images/robot-egomotion-notalk.svg" class="column" />
+    </div>
+    </div>
+    <div style="display:table-row" class="build" >
+    <div class="state5" style="display:table-cell">
+        <ul>
+        <li> No mutual observation.</li>
+        <li> Example: ARToolKit (Kato et al. 1999)</li>
+        </ul>
+    </div>
+    <div class="fragment"
+         data-fragment-index="10"
+         style="display:table-cell">
+        <ul>
+        <li> Controlled environment.</li>
+        <li> Corner features are error prone.</li>
+        <li> Example: Bundler (Snavely et al. 2006)</li>
+        </ul>
+    </div>
+    <div class="fragment"
+         data-fragment-index="11"
+         style="display:table-cell">
+        <ul>
+        <li>Needs accurate egomotion estimates.</li>
+        </ul>
+    </div>
+    </div>
+    </div></p>
+    <cite data-key="<b>Dh</b>RyCo IROS 2013"></cite>
+</section>
+
+<section id="mutloc-formulation">
+    <h2>Problem formulation</h2>
+    <div style="position:relative">
+        <img alt="Math setup" src="media/mutloc/images/mathdiag.png" />
+        <div class="fragment fade-out">
+            <div style="position:absolute;left:0%;top:10%;width:100%;height:50%;
+                        background-color:var(--main-bg-color);opacity:0.9;
+                        "></div>
+            <div style="position:absolute;left:21%;top:50%;width:58%;height:49%;
+                        background-color:var(--main-bg-color);opacity:0.9;
+                        "></div>
+        </div>
+        <div class="fragment fade-out">
+            <div style="position:absolute;left:21%;top:15%;width:57%;height:100%;
+                        background-color:var(--main-bg-color);opacity:0.9;
+                        "></div>
+        </div>
+        <div class="fragment fade-out">
+            <div style="position:absolute;left:09%;top:15%;width:10%;height:33%;
+                        background-color:var(--main-bg-color);opacity:0.9;
+                        "></div>
+            <div style="position:absolute;left:80%;top:15%;width:11%;height:33%;
+                        background-color:var(--main-bg-color);opacity:0.9;
+                        "></div>
+        </div>
+    </div>
+  <!-- Using Mathjax you can use any latex math in \[ \] symbols and \( \) for
+       inline math.  -->
+  <div >
+    <div class="fragment">
+      \begin{align}
+      \|s_1\uvect{p}_1-s_2\uvect{p}_2\| &=\|   \vect{q_1}-   \vect{q_2}\| \\
+      \end{align}
+    </div>
+    <div class="fragment">
+      \begin{align}
+      \|s_2\uvect{p}_2-   \vect{p_3}\|  &=\|   \vect{q_2}-s_3\uvect{q}_3\| \\
+      \|   \vect{p_3}-s_1\uvect{p}_1\|  &=\|s_3\uvect{q}_3-   \vect{q_1}\|
+      \end{align}
+    </div>
+  </div>
+  <cite data-key="<b>Dh</b>RyCo IROS 2013"></cite>
+</section>
+
+<section>
+  <h2>Solving for \(s_1\) \(s_2\) and \(s_3\)</h2>
+  <p style="">
+    \begin{align}
+    s_1^2 + s_2^2      - 2s_1s_2\uvect{p}_1^\top\uvect{p}_2 - \|\vect{q}_1 - 
+    \vect{q}_2\|^2 &= 0 \\
+    %
+    s_2^2 - s_3^2  - 2s_2\uvect{p}_2^\top\vect{p}_3
+    + 2s_3\vect{q}_2^\top\uvect{q}_3
+    + \|\vect{p}_3\|^2 - \|\vect{q}_2\|^2 &= 0
+    \\
+    %
+    s_1^2          - s_3^2  - 2s_1\uvect{p}_1^\top\vect{p}_3
+    + 2s_3\vect{q}_1^\top\uvect{q}_3
+    + \|\vect{p}_3\|^2 - \|\vect{q}_1\|^2 &= 0
+    \label{eq31}
+    \end{align}
+  </p>
+
+  <p class="fragment">
+    Eliminating \(s_2\) and \(s_3\)
+  </p>
+  <p class="fragment">
+    \begin{align}
+    r_2(s_1) = \begin{vmatrix}
+    c_4 & c_3 & c_2 & c_1 & c_0 & 0 \\
+    0  & c_4 & c_3 & c_2 & c_1 & c_0\\
+    1 & d_1 & d_0 & 0 & 0 & 0 \\
+    0 & 1 & d_1 & d_0 & 0 & 0 \\
+    0 & 0 & 1 & d_1 & d_0 & 0 \\
+    0 & 0 & 0 & 1 & d_1 & d_0
+    \end{vmatrix} = 0.
+    \label{eq:finalsylvester}
+    \end{align}
+  </p>
+  <p class="fragment">
+    This is a 8-degree polynomial with 8-roots. Which one is the right solution?
+  </p>
+</section>
+
+<section style="font-size:120%" id="svg-slide" data-state="svg-slide">
+  <h2>Filtering roots</h2>
+  <div style="height:40px"> </div>
+  <p class="fragment" data-fragment-index="8">
+    \begin{align}
+    \|   \vect{p_3}-s_1\uvect{p}_1\|  &=\|s_3\uvect{q}_3-   \vect{q_1}\|
+    \end{align}
+  </p>
+  <div class="fragment" data-fragment-index="9" style="position:relative;">
+    \begin{align}
+    %(s_1 + s_2)^2 - 2s_1s_2(1 + \uvect{p}_1^\top\uvect{p}_2) - \|\vect{q}_1 - 
+    %\vect{q}_2\|^2 &= 0
+    %  \\
+    %(s_2 - \uvect{p}_2^\top\vect{p}_3)^2
+    %- (s_3 - \vect{q}_2^\top\uvect{q}_3)^2
+    %+ (\vect{p}_3 - \uvect{p}_2)^\top\vect{p}_3 
+    %- \vect{q}_2^\top(\vect{q}_2 - \uvect{q}_3) &= 0\\
+
+    (s_1 - \uvect{p}_1^\top\vect{p}_3)^2
+    - (s_3 - \vect{q}_1^\top\uvect{q}_3)^2
+    + (\vect{p}_3 - \uvect{p}_1)^\top\vect{p}_3 
+    - \vect{q}_1^\top(\vect{q}_1 - \uvect{q}_3) &= 0
+    \end{align}
+
+      <div class="fragment" data-fragment-index="11"
+           style="position:absolute;width:24%;height:110%;left:2%;top:-5%;border:4px solid red">
+      </div>
+  </div>
+  <br/>
+ 
+  <div class="fragment" data-fragment-index="10" style="position:relative;left:-2%;transform:scale(0.95);" >
+    <object id="mathdiagWP" style="margin-top:-20px"
+            class="fragment nofade" data-fragment-index="11"
+            data="media/mutloc/images/mathdiagWithProjections.svg"
+            type="image/svg+xml"
+            >Your browser does not support SVG</object>
+
+    <div class="fragment" data-fragment-index="11"
+         style="position:absolute; left:20%; top:74%; color: #00FF00" >
+       \(\uvect{p}_1^\top\vect{p}_3 \)
+    </div>
+    <div class="fragment" data-fragment-index="11"
+         style="position:absolute; left:45%; top:25%; color: #FF0000" >
+      \(s_1 - \uvect{p}_1^\top\vect{p}_3 \)
+    </div>
+    
+    <div class="fragment" data-fragment-index="12"
+         style="position:absolute; right:0px; top:25px; margin: 50px; background: var(--main-bg-color)">
+      \begin{align*}
+      s_2 - \uvect{p}_2^\top\vect{p}_3 &> 0\\
+      s_3 - \vect{q}_2^\top\uvect{q}_3 &> 0\\
+      s_1 - \uvect{p}_1^\top\vect{p}_3 &> 0\\
+      \end{align*}
+    </div>
+  </div>
+  <script>
+   function svg_on_fragment_hidden(svg_object) {
+       Index.getSVGObjElementById(svg_object, "image10").style['opacity'] = 1.0;
+       Index.getSVGObjElementById(svg_object, "g2992").style['display'] = 'none';
+   }
+   // Handle svg-slide
+   function svg_on_fragment_shown(svg_object) {
+       Index.getSVGObjElementById(svg_object, "image10").style['opacity'] = 0.2;
+       Index.getSVGObjElementById(svg_object, "g2992").style['display'] = 'block';
+   }
+   window.addEventListener("load", function() {
+       Reveal.addFragmentListner('mathdiagWP',
+                                 svg_on_fragment_shown,
+                                 svg_on_fragment_hidden);
+   });
+  </script>
+
+  <cite data-key="<b>Dh</b>RyCo IROS 2013"></cite>
+</section>
+
+
+<style type="text/css">
+ .widthhalf {
+     width:450px
+ }
+</style>
+<section id="mutloc-results">
+    <h2>Experimental results : Localization error</h2>
+    <div style="position:relative;height:600px">
+        <div class="fragment current-visible" data-fragment-index="0"
+             style="position:absolute;left:54%;top:33%;
+                    background:var(--main-bg-color);border:4px solid red">
+            <img id="x-z-def"
+                 class=""
+                 src="./media/mutloc/images/problem-x-and-z-axis.svg"
+                 width="400px"  />
+        </div>
+        <div style="width:50%;position:absolute" >
+            <h4>Translation error</h4>
+            <img class="divscaled widthhalf "
+                 data-fragment-index="1"
+                 src="media/mutloc/images/tiles_turtlebots_artkvsmutloc_transerr_errorbar_X.svg"/>
+            <img class="divscaled widthhalf"
+                 data-fragment-index="2"
+                 src="media/mutloc/images/tiles_turtlebots_artkvsmutloc_transerr_errorbar_Z.svg"/>
+
+            <div class="fragment current-visible"
+                 data-fragment-index="0">
+                <canvas id="lines" style="position:absolute;left:0;top:0;z-index:1"
+                        width="900" height="700">
+                    <script>
+                     var c = document.getElementById("lines");
+                     var ctx = c.getContext("2d");
+                     ctx.strokeStyle = "#FF0000";
+                     ctx.lineWidth = 4;
+                     ctx.beginPath();
+                     ctx.ellipse(260,275,40,20, 0, 0,2*Math.PI);
+                     ctx.stroke();
+                     ctx.lineTo(550, 280);
+                     ctx.stroke(); 
+                     ctx.beginPath();
+                     ctx.ellipse(260,540,40,20, 0, 0,2*Math.PI);
+                     ctx.stroke();
+                     ctx.lineTo(650, 350);
+                     ctx.stroke(); 
+                    </script>
+                </canvas>
+            </div>
+        </div>
+
+        <div class="fragment"
+             style="width:50%;position:absolute;right:0;top:0" >
+            <h4>Rotation error</h4>
+            <div style="height:35%;overflow:hidden" >
+                <img class="divscaled widthhalf "
+                     src="media/mutloc/images/tiles_turtlebots_artkvsmutloc_roterr_errorbar_X.svg"/>
+            </div>
+            <div style="height:35%" >
+                <img class="divscaled widthhalf "
+                     src="media/mutloc/images/tiles_turtlebots_artkvsmutloc_roterr_errorbar_Z.svg"/>
+            </div>
+        </div>
+    </div>
+    <cite data-key="<b>Dh</b>RyCo IROS 2013"></cite>
+</section>
+
+<section id="mutloc-video-result" class="center">
+        <h2>Realtime mutual localization</h2>
+        <div >
+            <video
+                class="slide-play"
+                  style="display:block;margin:auto" width="900" height="450"  loop>
+    <source src="media/mutloc/images/concatenated-ffmpeg-faster.ogg" type="video/ogg">
+    Your browser does not support the video tag.
+    </video></div>
+    <cite data-key="<b>Dh</b>RyCo IROS 2013"></cite>
+</section>
+
+<section id="mutloc-conclude" style="height:600px">
+    <div style="height:100px"></div>
+    <h2>Contribution</h2>
+    <ul style="margin-left:10%"><li class="fragment">
+        First solution to cooperative localization without ego-motion using bearing only measurements.
+    </li><li class="fragment">
+        Exploiting the structure of mutual observation : better localization.
+    </li></ul>
+</section>
+
+<section id="highlight-planning" data-state="highlight-planning">
+  <h2>End-to-End navigation using RL</h2>
+  <div style="position:relative;margin:auto;display:inline-block;left:2%">
+    <div class="" >
+      <object type="image/svg+xml"
+              id="highlight-planning-obs-map-plan"
+              class="obs-map-plan fragment nofade"
+              onload='show_on_svgload("highlight-planning-obs-map-plan", "slide-end-to-end-rl")'
+              data="./media/obs-map-plan-layered.svg" >
+      </object>
+    </div>
+  </div>
+  <div style="display:flex; justify-content: space-between; width:90%;margin:auto">
+    <span id="talk-outline-mapping" > Mapping </span>
+    <span id="talk-outline-mutual-loc" >  Localization </span>
+    <span id="talk-outline-end-to-end" >  End-to-End RL</span>
+    <span id="talk-outline-gcrl" style="opacity:0"> Goal conditioned RL</span>
+  </div>
+</section>
+
+<section id="Mirowski2017-2">
+  <h2>Learning to navigate in complex environments (Mirowski et al. 2017)</h2>
+  <video
+      class="slide-play"
+      width="850"  loop>
+      <source src="./media/DeepMind Lab - Nav Maze Level 1-M40rN7afngY.mp4" type="video/mp4" />
+  </video>
+  <div class="othercite">
+    (Mirowski et al. ICLR 2017).
+  </div>
+</section>
+
+<section id="question-do-drl" class="center">
+  <h4>Do DRL algorithms really learn to navigate?</h4>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+<section id="BaDhGrICLR2018-vs-Mirowski2017" class="center">
+  <h2>Differences in setup from Mirowski et al. (2017)</h2>
+  <ul> <li>
+    </li> <li> We use small wall penality (-0.2).
+    </li> <li> We use a 4-action space while Mirowski el. (2017) use 8-action space.
+  </li> </ul>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+<section id="BaDhGrICLR2018-exp-setup" class="center">
+  <h2>Experimental Setup</h2>
+  <div class="table_2x2">
+    <div class="row" style="height:100%">
+      <div clas="column" style="width:45%;display:inline-block">
+        <ul><li class="fragment"
+                data-fragment-index="8"
+            >
+          Episode (1200 steps):
+          <ul><li class="fragment"
+                  id="maze-item"
+                  data-fragment-index="9"
+              >
+            New maze : Random or Static
+          </li><li class="fragment"
+                   data-fragment-index="10"
+                   id="goal-item"
+               >
+            New goal location: Random or Static
+          </li><li class="fragment"
+                   data-fragment-index="11"
+               >
+            On finding the goal.
+            <ul><li>
+              New spawn location: Random or Static
+            </li></ul>
+            <div style="display:none" id="spawn-item" class="fragment"></div>
+          </li></ul></li><li class="fragment">
+            Goal: Maximize number of times the goal found per episode.
+          </li></ul>
+        <video
+            id="BaDhGrICLR2018-exp-setup-0246-video"
+            class="fragment-play fragment"
+            data-fragment-index="11"
+            style="display:block;margin:auto" width="488" height="198" loop>
+          <source src="media/BaDhGrICLR2018/seen-envs-videos/gen_stats_latest_loaded-from-training-09x09-0246_acting-on-training-09x09-0246_vars-True_apples-0-no-attn.mp4" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+        <div style="display:none" id="show-ours-tag" class="fragment"></div>
+      </div>
+      <div clas="column" style="width:45%;display:inline-block">
+        <style >
+         #exp-setup-labels {
+             position:absolute;
+             left:51%;
+             top:33%;
+             width: 48%;
+             max-width:none;
+             max-height: none;
+         }
+        </style>
+        <object id="exp-setup-labels"
+                class="fragment nofade"
+                type="image/svg+xml"
+                data="media/BaDhGrICLR2018/plot_summary_bar_plots-exp-setup-labels.svg"
+        >
+        </object>
+        <script>
+         var svgShowElement = function(id) {
+             var ele = Index.getSVGElementById("exp-setup-labels", id);
+             ele.style["opacity"] = 1.0;
+         }
+         var svgHideElement = function(id) {
+             var ele = Index.getSVGElementById("exp-setup-labels", id);
+             ele.style["opacity"] = 0.1;
+         }
+         window.addEventListener("load", function() {
+             Reveal.addFragmentListner(
+                 'maze-item',
+                 function (svg) {svgShowElement("maze-text");},
+                 function (svg) {svgHideElement("maze-text");}
+             );
+             Reveal.addFragmentListner(
+                 'spawn-item',
+                 function (svg) {
+                     svgShowElement("spawn-text");
+                     svgShowElement("color-labels");
+                 },
+                 function (svg) {
+                     svgHideElement("spawn-text");
+                     svgHideElement("color-labels");
+                 }
+             );
+             Reveal.addFragmentListner(
+                 'goal-item',
+                 function (svg) {svgShowElement("goal-text");},
+                 function (svg) {svgHideElement("goal-text");}
+             );
+         });
+        </script>
+      </div>
+    </div>
+  </div>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+<section id="BaDhGrICLR2018-results-rewards">
+  <div style="height:120px">
+    <h2>Rewards</h2>
+  </div>
+  <style>
+   #rewards-labels {
+       position:absolute;
+       left:53%;
+       top:16%;
+       width: 129%;
+       max-width:none;
+       max-height: none;
+   }
+  </style>
+  <div style="display:inline-block;position:relative" >
+    <img id="latency-labels"
+         src="media/BaDhGrICLR2018/plot_summary_bar_plots-latency-labels.svg"/>
+    <img id="rewards-repeat"
+         class="fragment"
+         data-fragment-index="3"
+         style="position:relative;left:-40%;height:500px"
+         src="media/BaDhGrICLR2018/plot_summary_bar_plots-rewards.svg"/>
+  </div>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+<style >
+#latency-zoomed.fragment.fade-out-shrink {
+    opacity: 1.0;
+    visibility: inherit;
+    position:absolute;
+    left:-82%;
+    top:15%;
+    width:142%;
+    max-width: none;
+    max-height: none;
+    transition : all 0.2s ease;
+}
+    #latency-zoomed.fragment.visible.fade-out-shrink {
+        position:absolute;
+        left:-24%;
+        top:63%;
+        width:82%;
+        max-width: none;
+        max-height: none;
+    }
+ #latency-labels {
+     position:absolute;
+     left:53%;
+     top:16%;
+     width: 127%;
+     max-width:none;
+     max-height: none;
+ }
+</style>
+
+<section id="BaDhGrICLR2018-results-latency-alt">
+  <div class="fragment" data-fragment-index="0">
+      <h2>Latency metric</h2>
+        \[ \text{Latency }1:>1
+         = \frac{\text{Time taken to find goal first time}}
+      {\text{Average time taken to find goal thereafter}} \]
+  </div>
+  <div style="display:inline-block;position:relative" >
+      <div class="fragment" data-fragment-index="1">
+      <div class="fragment fade-out" data-fragment-index="3">
+          <img id="latency-zoomed"
+               class="fragment fade-out-shrink"
+               data-fragment-index="2"
+               src="media/BaDhGrICLR2018/plot_summary_bar_plots-latency-zoomed.svg"/>
+      </div>
+      </div>
+      <img id="latency-labels"
+           src="media/BaDhGrICLR2018/plot_summary_bar_plots-latency-labels.svg"/>
+      <img id="latency-repeat"
+           class="fragment"
+           data-fragment-index="3"
+           style="position:relative;left:-40%;height:500px"
+           src="media/BaDhGrICLR2018/plot_summary_bar_plots-latency.svg"/>
+  </div>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+<style >
+#dist-ineff-zoomed.fragment.fade-out-shrink {
+    opacity: 1.0;
+    visibility: inherit;
+    position:absolute;
+    left:-82%;
+    top:15%;
+    width:142%;
+    max-width: none;
+    max-height: none;
+    transition : all 0.2s ease;
+}
+    #dist-ineff-zoomed.fragment.visible.fade-out-shrink {
+        position:absolute;
+        left:-24%;
+        top:63%;
+        width:82%;
+        max-width: none;
+        max-height: none;
+    }
+ #dist-ineff-labels {
+     position:absolute;
+     left:53%;
+     top:16%;
+     width: 129%;
+     max-width:none;
+     max-height: none;
+ }
+</style>
+
+<section id="BaDhGrICLR2018-results-dist-ineff-alt">
+  <div >
+      <h2>Distance inefficiency</h2>
+      \[ \text{Distance inefficiency (after first goal hit)}
+      = \frac{\text{Distance traveled}} {\text{Approx. shortest path}} \]
+  </div>
+  <div style="display:inline-block;position:relative" >
+      <div class="fragment" data-fragment-index="1">
+          <div class="fragment fade-out" data-fragment-index="3">
+              <img id="dist-ineff-zoomed"
+                   class="fragment fade-out-shrink"
+                   data-fragment-index="2"
+                   src="media/BaDhGrICLR2018/plot_summary_bar_plots-distance-inefficiency-zoomed.svg"/>
+          </div>
+      </div>
+      <img id="latency-labels"
+           src="media/BaDhGrICLR2018/plot_summary_bar_plots-latency-labels.svg"/>
+      <img id="dist-ineff-repeat"
+           class="fragment"
+           data-fragment-index="3"
+           style="position:relative;left:-40%;height:500px"
+           src="media/BaDhGrICLR2018/plot_summary_bar_plots-distance-inefficiency.svg"/>
+  </div>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+
+<section id="BaDhGrICLR2018-seen-maps" class="center">
+  <h2>Static Goal Random Spawn Static Maze</h2>
+  <video
+      class="slide-play"
+      style="display:block;margin:auto" width="976" height="396" loop>
+    <source src="media/BaDhGrICLR2018/seen-envs-videos/gen_stats_latest_loaded-from-training-09x09-0169_acting-on-training-09x09-0169_vars-True_apples-0-no-attn.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+  </video>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+<style>
+ #BaDhGrICLR2018-simple-maps .column {
+     position:absolute;
+     height:100%
+ }
+ #BaDhGrICLR2018-simple-maps .column h2 {
+     position:relative;
+     top:50%;
+     margin:auto;
+ }
+ #BaDhGrICLR2018-simple-maps .column.left {
+     text-align:center;
+     width:40%;
+     margin:auto;
+ }
+ #BaDhGrICLR2018-simple-maps .column.right {
+     width:60%;
+     left:40%;
+ }
+ #BaDhGrICLR2018-simple-maps .row {
+     width:100%;
+     height:210px;
+     position:relative;
+ }
+</style>
+<section id="BaDhGrICLR2018-simple-maps" >
+    <div class="row fragment nofade" >
+        <div class="column left" >
+            <h2 >Square map</h2>
+        </div>
+        <div class="column right "
+        >
+            <video
+                class="fragment-play"
+                style="display:block;margin:auto" height="200" loop>
+                <source src="./media/BaDhGrICLR2018/gen_stats_latest_loaded-from-training-1000_acting-on-planning-09x09-0002_vars-True_apples-0-no-attn.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+    <div class="row fragment" >
+        <div class="column left "
+        >
+            <h2 >Wrench map</h2>
+        </div>
+        <div class="column right">
+            <video
+                class="fragment-play"
+                style="display:block;margin:auto" height="200" loop>
+                <source src="./media/BaDhGrICLR2018/gen_stats_latest_loaded-from-training-1000_acting-on-planning-09x09-0004_vars-True_apples-0-no-attn.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+    <div class="row fragment" >
+        <div class="column left "
+        >
+            <h2 >Goal map</h2>
+        </div>
+        <div class="column right">
+            <video 
+                class="fragment-play"
+                   style="display:block;margin:auto" height="200" loop>
+                <source src="./media/BaDhGrICLR2018/gen_stats_latest_loaded-from-training-1000_acting-on-planning-09x09-0006_vars-True_apples-0-no-attn.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+    <!-- script>
+     let slideele = document.getElementById("BaDhGrICLR2018-simple-maps");
+     let vido = new MutationObserver( function(mutationsList) {
+         var visvids = slideele.querySelectorAll("video.pauseme");
+         var anyvisible = slideele.querySelectorAll(".fragment.current-fragment").length;
+         Array.from(visvids).forEach(function (v) {
+             if ( v.classList.contains("fragment") ) {
+                 if (! v.classList.contains("current-fragment") ) 
+                     v.pause();
+                 else {
+                     v.currentTime = 0;
+                     v.play();
+                 }
+
+             } else {
+                 if (anyvisible)
+                     v.pause();
+             }
+         });
+     });
+     let fragments = slideele.getElementsByClassName("fragment");
+     Array.from(fragments).slice(1).forEach(function (v) {
+         vido.observe(v, { attributes: true, childList: false});
+     });
+    </script -->
+    <aside class="notes">
+    Stress that these have been trained on random maps.
+  </aside>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+<section id="BaDhGrICLR2018-take-aways" class="center">
+  <h2>Take aways</h2>
+  <div style="text-align:left;margin:auto;width:70%">
+  The algorithm learns:
+  <ul><li>
+    </li><li class="fragment"> to follow walls and explore.
+    </li><li class="fragment"> better than random but not optimal policy (random goal, static maps).
+    </li><li class="fragment"> no better than random policy (random goal, random map).
+  </li></ul>
+  </div>
+  <cite data-key="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017"></cite>
+</section>
+
+<section id="highlight-goal" data-state="highlight-goal">
+  <h2>Goal conditioned RL</h2>
+  <div style="position:relative;margin:auto;display:inline-block;left:2%">
+    <div class="" >
+      <object type="image/svg+xml"
+              id="highlight-goal-obs-map-plan"
+              onload='show_on_svgload("highlight-goal-obs-map-plan", "slide-goal-rl-highlight")'
+              class="obs-map-plan fragment nofade"
+              data="./media/obs-map-plan-layered.svg" >
+      </object>
+    </div>
+  </div>
+  <div style="display:flex; justify-content: space-between; width:90%;margin:auto">
+    <span id="talk-outline-mapping" > Mapping </span>
+    <span id="talk-outline-mutual-loc" >  Localization </span>
+    <span id="talk-outline-end-to-end" >  End-to-End RL</span>
+    <span id="talk-outline-gcrl" > Goal conditioned RL</span>
+  </div>
+</section>
+
+
+<section id="highlight-goal-rl" style="height:600px">
+  <h2>Goal conditioned reinforcement Learning</h2>
+  <div style="position:relative;margin:auto;display:inline-block;left:2%">
+    <div class="" >
+      <object type="image/svg+xml"
+              id="highlight-goal-rl-obs-map-plan"
+              class="obs-map-plan"
+              data="./media/goal-conditioned-rl.svg" >
+      </object>
+    </div>
+  </div>
+  <div class="fragment"
+       style="position:absolute;left:450px;top:500px;width:500px;height:300px">
+    <ul><li>
+      Goal is "specified"
+    </li><li>
+      No exploration needed
+    </li><li>
+      State is fully specified (no partial observation)
+    </li></ul>
+  </div>
+</section>
+
+<section id="recall-floyd-warshall">
+  <h2>Recall Floyd-Warshall algorithm</h2>
+  <div style="height:300px;position:relative;">
+    <div style="position:relative;top:50%;transform:transformY(-50%);">
+      <object type="image/svg+xml" id="recall-floyd-warshall-svg"
+              style="width:600px"
+              data="./media/floyd-warshall-rl-diag.svg">
+      </object>
+      <p class="fragment">
+        \[ Q(s_t, g_w) + Q(s_w, g^*) \le Q(s_t, g^*) \]
+      </p>
+    </div>
+  </div>
+</section>
+
+<section >
+  <h2>Lessons from Deep Q Networks</h2>
+  <div class="table_2x2">
+    <div class="row" style="height:auto">
+      <div class="column" >
+        <h4>Deep Q Networks</h4>
+        <ul><li>
+          \begin{align}
+          r_t + \Q(s_{t+1}) = \Q(s_t)
+          \end{align}
+        </li><li class="fragment">
+          Naive Loss: <br/>
+          \( \Loss = \left(  r_t + \Q(s_{t+1}) - \Q(s_t) \right)^2 \)
+        </li><li class="fragment">
+          Leads to unstable updates
+        </li></ul>
+      </div>
+      <div class="column" >
+        <h4>Deep Floyd-Warshall RL</h4>
+        <ul><li>
+            \begin{align}
+            \Q(s_t, g_w) + \Q(s_w, g^*) \le \Q(s_t, g^*)
+            \end{align}
+        </li><li class="fragment">
+          Naive Loss: <br/>
+          \( \Loss = (\Q(s_t, g_w) + \Q(s_w, g^*) - \Q(s_t, g^*))_+^2 \)
+        </li><li class="fragment">
+          Leads to unstable updates
+        </li></ul>
+      </div>
+    </div>
+    <h4 style="margin-top:1ex" class="fragment">Strategy: </h4>
+    <div class="row" style="height:auto">
+      <ul><li class="fragment">
+        Maintain two networks: Target network \(\Qtgt\) and Main network \(\Q_m\)
+      </li><li class="fragment">
+        Target network is such that: \( \Theta_{\text{tgt}} \leftarrow \alpha \Theta_{\text{tgt}} + \alpha \Theta_{m} \)
+        where \(\alpha \approx 0.9\)
+      </li><li class="fragment">
+        No gradient backpropagation through target network
+      </li></ul>
+    </div>
+    <h4 style="margin-top:1ex" class="fragment">Solution: </h4>
+    <div class="row" style="height:auto" >
+      <div class="column fragment">
+        \[ \Loss_{\text{bellman}}
+        =  \left( r_t + \Qtgt(s_{t+1}) - \Q_m(s_t) \right)^2 \]
+      </div>
+      <div class="column fragment">
+        <div>
+        \[ \LossLo =  \left( \Qtgt(s_t, g_w) + \Qtgt(s_w, g^*) - \Q_m(s_t, g^*) \right)^2_+ \]
+        </div><div class="fragment">
+        \[ \LossUp =  \left( \Q_m(s_t, g_w) + \Qtgt(s_w, g^*) - \Qtgt(s_t, g^*) \right)^2_+ \]
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="center">
+  <h2>Floyd-Warshall Reinforcement Learning </h2>
+
+  <div class="table_2x2">
+    <div class="fragment">
+      \begin{align}
+      \Q(s_t, g_w) + \Q(s_w, g^*) \le \Q(s_t, g^*)
+      \end{align}
+    </div>
+    <div class="fragment">
+      \begin{align}
+      \LossLo &=
+      \left( \Qtgt(s_t, g_w) + \Qtgt(s_w, g^*) - \Q_m(s_t, g^*) \right)_+^2
+      \end{align}
+    </div>
+    <div class="fragment">
+      \begin{align}
+      \LossUp &=
+      \left( \Q_m(s_t, g_w) + \Qtgt(s_w, g^*) - \Qtgt(s_t, g^*) \right)_+^2
+      \end{align}
+    </div>
+  </div>
+  <cite data-place="left" data-key="Kaelbling; 1993"></cite>
+</section>
+
+<section class="center">
+  <h2>Loss term ablation</h2>
+  <ul><li>
+    \begin{align}
+    \Loss_{\text{bellman}} =
+    \left( \Rew(\state_t) + \max_{\act}\discount \Qtgt(\state_{t+1}) - \Q_m(\state_t) \right)^2
+    \end{align}
+  </li><li>
+    \begin{align}
+    \LossStep &= \left( \Q_m(\state_t, \goal_{t+1}) - \Rew(\state_t) \right)^2
+    \end{align}
+  </li><li>
+    \begin{align}
+    \LossLo &=
+    \left( \Qtgt(s_t, g_w) + \Qtgt(s_w, g^*) - \Q_m(s_t, g^*) \right)_+^2
+    \end{align}
+  </li><li>
+    \begin{align}
+    \LossUp &=
+    \left( \Q_m(s_t, g_w) + \Qtgt(s_w, g^*) - \Qtgt(s_t, g^*) \right)_+^2
+    \end{align}
+  </li></ul>
+
+  <p>
+    <object type="image/svg+xml" style="width:600px"
+            data="./media/loss-function-ablation.svg"
+            id="loss-function-ablation-svg">
+    </object>
+  </p>
+  <div id="loss-function-ablation-dummies"
+       class="dummy-to-svg-map"
+       mapped-svg="loss-function-ablation-svg"
+  >
+    <span svg-ele-in-ids="HER_up" class="fragment"></span>
+    <span svg-ele-in-ids="HER_lo" class="fragment"></span>
+    <span svg-ele-in-ids="HER_lo_up" class="fragment"></span>
+    <span svg-ele-in-ids="HER_step" class="fragment"></span>
+    <span svg-ele-in-ids="HER_step_lo_up" class="fragment"></span>
+    <span svg-ele-in-ids="Step_lo_up" class="fragment"></span>
+  </div>
+</section>
+
+
+
+
+<section class="center">
+  <h2>Tasks</h2>
+
+  <video
+      muted="True"
+      class="slide-play"
+      style="display:block;margin:auto" height="415" >
+    <source src="./media/DhBaSiCoICLR2019/Ingredients for Robotics Research-8Np3eC_PTFo.webm#t=10,42" type="video/webm">
+    Your browser does not support the video tag.
+  </video>
+  <cite data-place="left" data-key="Plappert et al. (2018)"></cite>
+</section>
+
+<section id="highlight-goal-rl-manipulation" style="height:600px">
+  <h2>Goal conditioned reinforcement Learning</h2>
+  <div style="position:relative;margin:auto;display:inline-block;left:2%">
+    <div class="" >
+      <object type="image/svg+xml"
+              id="highlight-goal-rl-manip-obs-map-plan"
+              class="obs-map-plan"
+              data="./media/goal-conditioned-rl.svg" >
+      </object>
+    </div>
+  </div>
+  <div class="dummy-to-svg-map"
+       id="highlight-goal-rl-manipulation-dummies"
+       mapped-svg="highlight-goal-rl-manip-obs-map-plan"
+  >
+    <span svg-ele-in-ids="joint-angle-state"
+            svg-ele-out-ids="localization-in-map map"
+            class="fragment"></span>
+      <span svg-ele-in-ids="manip-goal-image"
+            svg-ele-out-ids="nav-goal-image"
+            class="fragment"></span>
+      <span svg-ele-in-ids="joint-torque-actions"
+            svg-ele-out-ids="actions"
+            class="fragment"></span>
+  </div>
+</section>
+
+<section class="center">
+  <h2>Conventional RL vs Goal conditioned RL</h2>
+  <div class="table_2x2">
+    <div class="row" style="height:100%">
+      <div class="column" style="width:45%;display:inline-block">
+        <object type="image/svg+xml"
+                id="conventional-rl"
+                style="width:400px"
+                data="./media/goal-rl-vs-rl.svg"
+                onload="show_on_svgload('conventional-rl', 'reward-includes-goal');
+                      hide_on_svgload('conventional-rl', 'achieved-goal',
+                      'desired-goal');"
+        >
+        </object>
+      </div>
+      <div class="column fragment" style="width:45%;display:inline-block">
+        <object type="image/svg+xml"
+                style="width:400px"
+                data="./media/goal-rl-vs-rl.svg" >
+        </object>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="center">
+  <h2>Hindsight Experience Replay</h2>
+  <video
+      muted="True"
+      id="vid-her"
+      class="slide-play"
+      style="display:block;margin:auto" height="415" >
+    <source src="./media/DhBaSiCoICLR2019/Ingredients for Robotics Research-8Np3eC_PTFo.webm#t=55,93" type="video/webm">
+    Your browser does not support the video tag.
+  </video>
+  <cite data-place="left" data-key="Plappert et al. (2018)"></cite>
+  <cite data-place="left" data-key="Andrychowicz et al. (2017)"></cite>
+</section>
+
+
+<section id="goal-vs-ours" class="center">
+  <h2>HER modeling has duplicate information</h2>
+  <div class="table_2x2">
+    <div class="row" style="height:100%">
+      <div class="column" style="width:45%;display:inline-block">
+        <p>Hindsight Experience Replay</p>
+        <object type="image/svg+xml"
+                id="goal-cond-rl"
+                style="width:400px"
+                data="./media/goal-rl-vs-rl.svg"
+                onload="show_on_svgload('goal-cond-rl', 'reward-includes-goal');"
+        >
+        </object>
+      </div>
+      <div class="column fragment" style="width:45%;display:inline-block">
+        <p>Can this work?</p>
+        <object type="image/svg+xml"
+                id="our-goal-cond-rl"
+                style="width:400px"
+                data="./media/goal-rl-vs-rl.svg"
+                onload="show_on_svgload('our-goal-cond-rl', 'without-goal-rewards');"
+        >
+        </object>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="center">
+  <h2>Goal rewards</h2>
+  <ul style="margin:50px"><li >
+    Duplicate information: Goal is specified as problem formulation
+    why specify it again as reward formulation
+  </li><li class="fragment">
+    Reward formulation:
+    <img src="media/goal-reward.svg" style="vertical-align:top" />
+  </li><li class="fragment">
+    Claim: Goal conditioned reinforcement learning without goal rewards is possible
+  </li></ul>
+  <aside class="notes">
+    GCRL : find optimal policy to reach the any given goal that changes every
+    episode.
+  </aside>
+</section>
+
+<section class="center">
+  <h2 >Proposal: One-step loss</h2>
+  <p class="fragment">
+  \begin{align}
+  \LossStep(\param_\fw) &= \left(
+  \fwargs{\state_{l-1}}{\act_{l-1}}{\goal_{l};\param_\fw}{*}{P} - \Rew(\state_{l-1}, \act_{l-1})
+  \right)^2.
+  \end{align}
+  </p>
+  <br/>
+  <h2 class="fragment">One-step episode HER</h2>
+  <ul class="fragment" style="margin:20px"><li>
+    An alternative interpretation of One-step Loss, the
+  goal achieved at every timestep was the desired pseudo-goal.
+  </li></ul>
+</section>
+
+<section class="center">
+  <h2>Importance of Step Loss and Goal Rewards</h2>
+  <img style="width:600px" src="media/goal-rewards-ablation.svg"/>
+</section>
+
+<section class="center">
+  <h2>Why does duplicate information hurts?</h2>
+  <ul><li class="fragment">
+    HER like methods require to reimagine new goal specification.
+  </li><li class="fragment">
+    If rewards depend upon goal specification, the rewards need to be resampled
+  </li><li class="fragment">
+    Reward resampling can be costly.
+  </li></ul>
+</section>
+
+<section class="center">
+  <h2>Results</h2>
+  <img src="./media/DhBaSiCoICLR2019/main-figure0.svg"/>
+</section>
+
+<!-- section class="center">
+  <h2>Effect of distance threshold</h2>
+  <img src="media/distancethresh.png"/>
+</section -->
+
+<section id="talk-conclusion">
+  <h2>Conclusion</h2>
+    <div style="position:relative;margin:auto;display:inline-block;left:2%">
+        <div class="" >
+            <object type="image/svg+xml"
+                    id="talk-conclusion-obs-map-plan"
+                    class="obs-map-plan"
+                    onload='show_on_svgload("talk-conclusion-obs-map-plan", "slide-conclusion")'
+                    data="./media/obs-map-plan-layered.svg" >
+            </object>
+        </div>
+    </div>
+    <div style="display:flex; justify-content: space-between; width:90%;margin:auto">
+      <span id="talk-conclusion-mapping" > Mapping </span>
+      <span id="talk-conclusion-mutual-loc" >  Localization </span>
+      <span id="talk-conclusion-end-to-end" >  End-to-End RL</span>
+      <span id="talk-conclusion-gcrl" > Goal conditioned RL</span>
+    </div>
+
+</section>
+
+<section id="acknowledgements" class="center">
+  <h2>Acknowledgements</h2>
+  <p>
+    Thanks to my colleagues and collaborators
+  </p>
+  <ul><li>Prof. Jason Corso (Advisor)
+  </li><li>Prof. Frank Dellaert
+  </li><li>Prof. Manmohan Chandraker
+  </li><li>Prof. Jeff Siskind
+  </li><li>Prof. Chenliang Xu
+  </li><li>Dr. Julian Ryde
+  </li><li>Dr. Brent Griffin
+  </li><li>Dr. Suren Kumar
+  </li><li>Shurjo Banerjee
+  </li><li>Madan Ravi Ganesh
+  </li></ul>
+</section>
+
+<section id="questions" class="center">
+  <h2>Questions?</h2>
+</section>
+
+<section class="center">
+  <ul style="display:none">
+      <li id="Andrychowicz et al. (2017)">
+          Andrychowicz, Marcin, et al. "Hindsight experience replay." Advances in Neural Information Processing Systems. 2017.
+      </li>
+      <li id="<b>Dh</b>RyCo IROS 2013">
+Mutual localization: Two camera relative 6-dof pose estimation from reciprocal fiducial observation. V Dhiman, J Ryde, JJ Corso. IROS 2013
+      </li>
+      <li id="Ku<b>Dh</b>Co AAAI 2014">
+          Learning Compositional Sparse Models of Bimodal Percepts. S Kumar, V Dhiman, JJ Corso AAAI, 2014
+      </li>
+      <li id="Ry<b>Dh</b>Pl IROS 2013">
+          Voxel planes: Rapid visualization and meshification of point cloud ensembles.
+           J Ryde, V Dhiman, R Platt IROS, 2013
+      </li>
+      <li id="<b>Dh</b>KuDaCo ICRA 2014">
+          Modern MAP inference methods for accurate and fast occupancy grid mapping on higher order factor graphs. V Dhiman, A Kundu, F Dellaert, JJ Corso ICRA 2014
+      </li>
+      <li id="Ch<b>Dh</b> US Patent 2017">
+          Continuous occlusion models for road scene understanding M Chandraker, V Dhiman. US Patent 9,821,813, 2017
+      </li>
+      <li id="<b>Dh</b>TrChCo CVPR 2016">
+          A continuous occlusion model for road scene understanding V Dhiman, QH Tran, JJ Corso, M Chandraker. CVPR 2016
+      </li>
+      <li id="<b>Dh</b>BaGrSiCo NIPS Wkshp 2017">
+          A Critical Investigation of DRL for Navigation V Dhiman, S Banerjee, B Griffin, JM Siskind, JJ Corso NIPS DRL Workshop, 2017.
+      </li>
+      <li id="Ku<b>Dh</b>KoCo PAMI 2017">
+          Learning Compositional Sparse Bimodal Models S Kumar, V Dhiman, PA Koch, JJ Corso. PAMI, 2017.
+      </li>
+      <li id="Mirowski ICLR 2017">
+          (Mirowski et al. 2017) Learning to navigate in complex environments. In ICLR 2017. 
+      </li>
+      <li id="Plappert et al. (2018)">
+        Multi-Goal Reinforcement Learning: Challenging Robotics Environments and
+        Request for Research. Matthias Plappert and Marcin Andrychowicz and Alex
+        Ray and Bob McGrew and Bowen Baker and Glenn Powell and Jonas Schneider
+        and Josh Tobin and Maciek Chociej and Peter Welinder and Vikash Kumar and
+        Wojciech Zaremba. ArXiV 2018. 1802.09464
+      </li>
+      <li id="Kaelbling; 1993">
+        Kaelbling, Leslie Pack. "Learning to achieve goals." IJCAI. 1993.
+      </li>
+  </ul>
+  <h2>Bibliography</h2>
+  <ul id="bibliography" style="font-size:80%;text-align:left;padding-left:5%">
+  </ul>
+</section>
+
+<!-- Backup slides -->
+<section id="backup-slides" class="center">
+  <a href="backup-slides.html">Backup Slides</a>
+</section>
+
+<!-- Start of Footer -->
+<div  style="position:absolute; left:10px; bottom:10px; width:100%;">
+  <div id="footer"
+       style="display:flex; justify-content: space-between; width:98%" ><!-- place holder for footer -->
+  </div>
+  <div id="footer-lower"
+       style="display:flex; justify-content: space-between; width:98%">
+  <img src="media/umich.png" style="height:20px;vertical-align:middle" />
+  <div style="font-size: 12px; opacity:0.8; margin: auto;"> <span class="presentationtitle"></span>  - <span class="presentationauthor" > </div>
+  <div style="font-size: 12px; opacity:0.8" id="slide-number-container"> &nbsp; </div>
+  </div>
+</div>
+<div style="clear: both;"></div>
+<!-- End of Footer -->
+            </div> <!-- class="slides" -->
+		</div> <!-- class="reveal"-->
+		<script src="reveal.js/lib/js/head.min.js"></script>
+		<script src="reveal.js/js/reveal.js"></script>
+        <script type="text/x-mathjax-config">
+         MathJax.Hub.Config({
+             "TeX" : { extensions: ["AMSmath.js", "color.js"] },
+             "HTML-CSS" : {scale : 80 }
+         });
+        </script>
+        <script src="index.js" > </script>
+    </body>
+</html>
