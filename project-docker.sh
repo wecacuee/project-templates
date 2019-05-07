@@ -1,35 +1,35 @@
 #!/bin/bash
-PROJDIR=$1
-TARGETDIR=$2
-FILE=$PROJDIR/Dockerfile
-TFILE=$TARGETDIR/Dockerfile
+PROJDIR="$1"
+TARGETDIR="$2"
+FILE="$PROJDIR/Dockerfile"
+TFILE="$TARGETDIR/Dockerfile"
 
-echo "Creating file $TFILE"
-echo "" > $TFILE
 
 doperline () {
+    # runs $2 for each line in the file $1
+    local PROCLINE="$2"
     while IFS= read -r line; do
-        ${@:2} "$line"
+        "$2" "$line"
     done < "$1"
 }
 
 sedmultline () {
-    pattern="$1"
-    tfile="$2"
-    line="$3"
+    # Replaces pattern $2 in file $1
+    local line="$1"
+    local pattern="${2:-%%%.*%%%}"
     if [[ "$line" =~ $pattern ]]; then
-        cat "$PROJDIR/${line:3:-3}.em" >> $tfile
-        echo "" >> $tfile
+        cat "$PROJDIR/${line:3:-3}.em"
+        echo ""
     else
-        echo "$line" >> $tfile
+        echo "$line"
     fi
 }
 
-sedpartial () { sedmultline "%%%.*%%%" $TFILE "$1"; }
-
-doperline $FILE sedpartial
+echo "Creating file $TFILE"
+doperline "$FILE" sedmultline > "$TFILE"
 
 for f in $PROJDIR/*.em; do
     fname=$(basename $f)
-    rm $TARGETDIR/$fname
+    echo "rm '$TARGETDIR/$fname'"
+    rm "$TARGETDIR/$fname"
 done
